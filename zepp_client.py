@@ -10,7 +10,7 @@ device, `com.huami.midong`/`android_phone`), this does NOT log the phone app
 out.
 
 The app_token is cached on disk (`ZEPP_TOKEN_CACHE`, default
-`~/.cache/zepp-mcp/auth.json`, chmod 600) so restarts don't log in again.
+`~/.cache/amazfit-mcp/auth.json`, chmod 600) so restarts don't log in again.
 An expired token is detected reactively (401/403) and replaced by a fresh
 login, once, before replaying the failed call.
 
@@ -59,7 +59,7 @@ _DATA_HEADERS_TEMPLATE = {
     "accept-encoding": "gzip",
 }
 
-DEFAULT_TOKEN_CACHE = Path.home() / ".cache" / "zepp-mcp" / "auth.json"
+DEFAULT_TOKEN_CACHE = Path.home() / ".cache" / "amazfit-mcp" / "auth.json"
 
 
 class ZeppError(RuntimeError):

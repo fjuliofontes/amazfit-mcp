@@ -1,5 +1,5 @@
 [project]
-name = "zepp-mcp"
+name = "amazfit-mcp"
 version = "0.1.0"
 description = "MCP server exposing Zepp / Amazfit cloud data (workouts, sleep, readiness, PAI, stress, SpO2) to AI agents"
 readme = "README.md"

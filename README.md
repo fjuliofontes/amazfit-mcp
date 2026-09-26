@@ -1,4 +1,4 @@
-# Zepp MCP
+# Amazfit MCP
 
 A [Model Context Protocol](https://modelcontextprotocol.io) server that gives any
 MCP-capable AI agent read access to your **Zepp / Amazfit** data: workouts with
@@ -35,8 +35,8 @@ numeric type codes; unmapped codes show as `unknown (type N)`. Add them to
 ## Setup
 
 ```bash
-git clone https://github.com/<your-github-user>/zepp-mcp.git
-cd zepp-mcp
+git clone https://github.com/fjuliofontes/amazfit-mcp.git
+cd amazfit-mcp
 uv sync                            # install dependencies
 cp .env.example .env               # then add your Zepp credentials to .env
 uv run python test_connection.py   # exercise every tool live
@@ -55,7 +55,7 @@ ZEPP_PASSWORD=your-zepp-password
 ZEPP_COUNTRY=US                    # login country code; change if login fails
 ZEPP_TIMEZONE=Europe/Lisbon        # default: machine local time
 ZEPP_DEVICE_NAMES=10289411=My Band # name devices missing from the built-in table
-ZEPP_TOKEN_CACHE=~/.cache/zepp-mcp/auth.json   # or "off"
+ZEPP_TOKEN_CACHE=~/.cache/amazfit-mcp/auth.json   # or "off"
 ```
 
 `.env` is listed in `.gitignore` and is never committed.
@@ -64,17 +64,17 @@ ZEPP_TOKEN_CACHE=~/.cache/zepp-mcp/auth.json   # or "off"
 
 Add the server to your agent's MCP configuration — for example Claude Desktop
 (`claude_desktop_config.json`), Claude Code (`.mcp.json`), or Cursor. Replace
-`/path/to/zepp-mcp` with the absolute path to your clone:
+`/path/to/amazfit-mcp` with the absolute path to your clone:
 
 ```json
 {
   "mcpServers": {
-    "zepp": {
+    "amazfit": {
       "command": "uv",
       "args": [
         "run",
         "--directory",
-        "/path/to/zepp-mcp",
+        "/path/to/amazfit-mcp",
         "python",
         "server.py"
       ]
@@ -99,7 +99,7 @@ an `"env"` block (not recommended for shared or committed config files):
 - Credentials live only in your local `.env`, which is git-ignored. Never commit
   real credentials, and avoid inlining them in MCP config files that may be
   shared or version-controlled.
-- The login token is cached at `~/.cache/zepp-mcp/auth.json` with `0600`
+- The login token is cached at `~/.cache/amazfit-mcp/auth.json` with `0600`
   permissions so restarts don't log in again. An expired token is replaced
   automatically. Set `ZEPP_TOKEN_CACHE=off` to keep it in memory only.
 - Device Bluetooth auth keys returned by the API are never exposed to the agent.

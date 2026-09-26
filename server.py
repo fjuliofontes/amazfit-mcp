@@ -1,5 +1,5 @@
 """
-Zepp MCP server (stdio). Exposes Zepp/Amazfit cloud data to any MCP-capable
+Amazfit MCP server (stdio). Exposes Zepp/Amazfit cloud data to any MCP-capable
 AI agent: workouts (with decoded tracks, splits, HR zones), daily activity
 and sleep, readiness/HRV, PAI, stress, blood oxygen, and devices.
 
@@ -22,7 +22,7 @@ from zepp_client import DEFAULT_TOKEN_CACHE, ZeppClient, ZeppError
 
 load_dotenv(Path(__file__).resolve().parent / ".env")
 
-mcp = FastMCP("zepp")
+mcp = FastMCP("amazfit")
 
 _client: ZeppClient | None = None
 _history: tuple[float, list[dict]] | None = None
