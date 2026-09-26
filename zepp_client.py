@@ -356,8 +356,11 @@ class ZeppClient:
     def workouts_page(self, limit: int = 50, before_trackid: int | str | None = None) -> tuple[list[dict], int | None]:
         """One page of workout summaries, newest-first. The history endpoint
         pages via a `trackid` cursor (no offsets): pass the returned cursor as
-        `before_trackid` to go further back. Cursor is None when exhausted."""
-        params = {"source": "run.mi.com", "userid": self.user_id, "limit": str(limit)}
+        `before_trackid` to go further back. Cursor is None when exhausted.
+
+        The page size must be sent as `count`: the endpoint silently ignores
+        `limit` and returns the entire history in one response."""
+        params = {"source": "run.mi.com", "userid": self.user_id, "count": str(limit)}
         if before_trackid is not None:
             params["trackid"] = str(before_trackid)
         j = self._get("/v1/sport/run/history.json", params)

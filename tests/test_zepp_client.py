@@ -84,3 +84,15 @@ def test_events_follow_next_cursor_and_dedupe(tmp_path, monkeypatch):
     )
     assert c.events("PaiHealthInfo", 0, 1000) == [a, b, c_]
     assert c._http.calls[1][2]["from"] == 200
+
+
+def test_workouts_page_sends_page_size_as_count(tmp_path, monkeypatch):
+    # Zepp ignores `limit` on history.json and returns the whole history.
+    monkeypatch.setattr(zepp_client, "_web_login", lambda *a: ("t", "42"))
+    body = {"data": {"summary": [{"trackid": "200", "source": "s"}], "next": 150}}
+    c = make_client(tmp_path, [FakeResponse(body=body)])
+    items, cursor = c.workouts_page(limit=3, before_trackid=300)
+    params = c._http.calls[0][2]
+    assert params["count"] == "3" and "limit" not in params
+    assert params["trackid"] == "300"
+    assert (len(items), cursor) == (1, 150)

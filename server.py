@@ -27,6 +27,7 @@ mcp = FastMCP("amazfit")
 _client: ZeppClient | None = None
 _history: tuple[float, list[dict]] | None = None
 HISTORY_TTL_S = 300
+HISTORY_PAGE_SIZE = 500  # verified live; sent as `count`
 
 
 def client() -> ZeppClient:
@@ -47,17 +48,16 @@ def client() -> ZeppClient:
 
 
 def _raw_history() -> list[dict]:
-    """Full workout history, newest first. The endpoint returns the whole
-    history in one response (the `limit` param is ignored in practice), so
-    it's fetched once and cached briefly."""
+    """Full workout history, newest first, paged via the trackid cursor
+    and cached briefly so repeated tool calls don't refetch it."""
     global _history
     if _history and time.monotonic() - _history[0] < HISTORY_TTL_S:
         return _history[1]
     c = client()
-    items, cursor = c.workouts_page(limit=1000)
+    items, cursor = c.workouts_page(limit=HISTORY_PAGE_SIZE)
     seen = {str(w["trackid"]) for w in items}
     while cursor is not None:
-        page, cursor = c.workouts_page(limit=1000, before_trackid=cursor)
+        page, cursor = c.workouts_page(limit=HISTORY_PAGE_SIZE, before_trackid=cursor)
         page = [w for w in page if str(w["trackid"]) not in seen]
         if not page:
             break

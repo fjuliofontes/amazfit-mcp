@@ -114,7 +114,7 @@ an `"env"` block (not recommended for shared or committed config files):
   shared with [`dreeve-zepp-connector`](../dreeve-zepp-connector), where each
   field's encoding was reverse-engineered and verified against Zepp's own
   FIT exports.
-- Workout history is fetched in one call and cached for 5 minutes.
+- Workout history is paged 500 at a time (via `count`; Zepp ignores `limit`) and cached for 5 minutes.
 - HTTP 429s and connection errors are retried with exponential backoff.
 
 ## Credits
