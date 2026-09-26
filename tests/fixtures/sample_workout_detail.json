@@ -1,0 +1,11 @@
+{
+  "_comment": "Synthetic fixture matching Zepp's run/detail.json encoding (not real user data) - used to unit-test decoder.py deterministically. 3 samples at t=0,10,20s, all channels aligned on the same timeline so no interpolation is needed to verify the math. speed/currentDistance/power_meter values are plausible-but-invented (not from a real workout) - currentDistance is in centimeters like altitude (confirmed live 2026-08-27: without the /100 conversion a real 20km ride decoded as 2017km).",
+  "time": "0;10;10",
+  "longitude_latitude": "4000000000,-7395000000;1000,1000;1000,1000",
+  "altitude": "1000;1100;1200",
+  "heart_rate": "0,120;10,10;10,20",
+  "gait": "0,0,80,170;10,0,82,180;10,0,81,160",
+  "speed": "0,2.50000;10,3.00000;10,3.50000",
+  "currentDistance": "0,0.00000;10,3000.00000;10,6000.00000",
+  "power_meter": "0,100;10,150;10,120"
+}

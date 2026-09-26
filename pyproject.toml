@@ -1,0 +1,26 @@
+[project]
+name = "zepp-mcp"
+version = "0.1.0"
+description = "MCP server exposing Zepp / Amazfit cloud data (workouts, sleep, readiness, PAI, stress, SpO2) to AI agents"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "mcp[cli]>=1.27.1",
+    "python-dotenv>=1.2.2",
+    "pyyaml>=6.0.3",
+    "requests>=2.34.2",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+    "ruff>=0.16.9",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+
+[tool.ruff]
+line-length = 120
+target-version = "py312"
