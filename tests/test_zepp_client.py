@@ -1,16 +1,22 @@
 import json
 
+import pytest
+import requests
+
 import zepp_client
-from zepp_client import ZeppClient
+from zepp_client import ZeppClient, ZeppError
 
 
 class FakeResponse:
-    def __init__(self, status=200, body=None, headers=None):
+    def __init__(self, status=200, body=None, headers=None, text=None):
         self.status_code = status
         self._body = body if body is not None else {}
         self.headers = headers or {}
+        self.text = text if text is not None else json.dumps(self._body)
 
     def json(self):
+        if self.text == "":
+            raise ValueError("empty body")
         return self._body
 
 
@@ -22,6 +28,17 @@ class FakeHttp:
     def get(self, url, headers=None, params=None, timeout=None):
         self.calls.append((url, headers, params))
         return self.responses.pop(0)
+
+    def delete(self, url, headers=None, timeout=None):
+        self.calls.append((url, headers, None))
+        return self.responses.pop(0)
+
+    def put(self, url, headers=None, json=None, timeout=None):
+        self.calls.append((url, headers, json))
+        resp = self.responses.pop(0)
+        if isinstance(resp, Exception):
+            raise resp
+        return resp
 
 
 def make_client(tmp_path, responses, **kw):
@@ -96,3 +113,62 @@ def test_workouts_page_sends_page_size_as_count(tmp_path, monkeypatch):
     assert params["count"] == "3" and "limit" not in params
     assert params["trackid"] == "300"
     assert (len(items), cursor) == (1, 150)
+
+
+def test_put_sends_json_and_replays_after_relogin(tmp_path, monkeypatch):
+    (tmp_path / "auth.json").write_text(
+        json.dumps({"email": "me@example.com", "country": "US", "app_token": "stale", "user_id": "42"})
+    )
+    monkeypatch.setattr(zepp_client, "_web_login", lambda *a: ("fresh", "42"))
+    c = make_client(tmp_path, [FakeResponse(401), FakeResponse(body={"id": 7, "title": "x"})])
+    assert c.save_training_template({"title": "x"})["id"] == 7
+    assert [call[2] for call in c._http.calls] == [{"title": "x"}, {"title": "x"}]
+    assert [call[1]["apptoken"] for call in c._http.calls] == ["stale", "fresh"]
+
+
+def test_put_is_not_replayed_after_network_error(tmp_path, monkeypatch):
+    # The write may have landed; a replay could duplicate the calendar entry.
+    monkeypatch.setattr(zepp_client, "_web_login", lambda *a: ("t", "42"))
+    monkeypatch.setattr(zepp_client.time, "sleep", lambda s: None)
+    c = make_client(tmp_path, [requests.exceptions.ConnectionError("reset"), FakeResponse(body={"code": 1})])
+    with pytest.raises(ZeppError):
+        c.add_calendar_entry({"title": "x"})
+    assert len(c._http.calls) == 1
+
+
+def test_add_calendar_entry_requires_created_code(tmp_path, monkeypatch):
+    monkeypatch.setattr(zepp_client, "_web_login", lambda *a: ("t", "42"))
+    c = make_client(tmp_path, [FakeResponse(body={"code": 0, "message": "bad"})])
+    with pytest.raises(ZeppError):
+        c.add_calendar_entry({"title": "x"})
+    assert c._http.calls[0][0].endswith("/users/42/training/calendar")
+
+
+def test_template_delete_accepts_empty_200(tmp_path, monkeypatch):
+    monkeypatch.setattr(zepp_client, "_web_login", lambda *a: ("t", "42"))
+    c = make_client(tmp_path, [FakeResponse(text="")])
+    c.delete_training_template(123)
+    assert c._http.calls[0][0].endswith("/users/training/templates/123")
+
+
+def test_write_http_error_raises(tmp_path, monkeypatch):
+    monkeypatch.setattr(zepp_client, "_web_login", lambda *a: ("t", "42"))
+    c = make_client(tmp_path, [FakeResponse(404, text="not found")])
+    with pytest.raises(ZeppError, match="404"):
+        c.delete_training_template(123)
+
+
+def test_calendar_delete_checks_code(tmp_path, monkeypatch):
+    monkeypatch.setattr(zepp_client, "_web_login", lambda *a: ("t", "42"))
+    c = make_client(tmp_path, [FakeResponse(body={"code": 1, "data": {"deleted": 1}}), FakeResponse(body={"code": 0})])
+    c.delete_calendar_entry("01ABC")
+    assert c._http.calls[0][0].endswith("/users/42/training/calendar/01ABC")
+    with pytest.raises(ZeppError):
+        c.delete_calendar_entry("01DEF")
+
+
+def test_training_templates_by_id(tmp_path, monkeypatch):
+    monkeypatch.setattr(zepp_client, "_web_login", lambda *a: ("t", "42"))
+    c = make_client(tmp_path, [FakeResponse(body={"items": [{"id": 5, "sourceType": 1}]})])
+    assert c.training_templates(workout_ids=[5, 6]) == [{"id": 5, "sourceType": 1}]
+    assert c._http.calls[0][2]["workoutIds"] == "5,6"

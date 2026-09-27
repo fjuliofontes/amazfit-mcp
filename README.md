@@ -3,7 +3,9 @@
 A [Model Context Protocol](https://modelcontextprotocol.io) server that gives any
 MCP-capable AI agent read access to your **Zepp / Amazfit** data: workouts with
 decoded GPS/HR/pace/power tracks, per-km splits and HR zones, daily activity and
-sleep stages, readiness/HRV, PAI, stress, blood oxygen, and devices.
+sleep stages, readiness/HRV, PAI, stress, blood oxygen, and devices. It can
+also create structured workouts and schedule them on the Zepp training
+calendar, which syncs them to the watch.
 
 It logs in to the Zepp cloud through Zepp's **web-app** login flow (the same one
 `user.zepp.com` uses), so it does **not** sign your phone's Zepp app out. No
@@ -21,6 +23,13 @@ phone, root, or Bluetooth required.
 | `get_workout_track(trackid, max_points=200, fields?)` | Decoded, downsampled time series: lat/lon, altitude, HR, speed, distance, cadence, stride, power, stroke rate |
 | `get_daily_summary(from_date?, to_date?, include_sleep_stages=false)` | Per-day steps, distance, calories, goal, and sleep (bed/wake time, deep/light/REM/awake, score, resting HR) |
 | `get_health_metrics(from_date?, to_date?, metrics?, include_stress_series=false)` | Per-day readiness (score, overnight HRV, sleeping RHR, baselines, physical/mental recovery), PAI, stress, overnight SpO2/ODI |
+| `list_workout_templates()` | Structured workouts in the Zepp template library, steps rendered as text |
+| `get_workout_template(template_id)` | One template's steps, including the hidden copy a calendar entry runs |
+| `list_scheduled_workouts(from_date?, to_date?)` | Structured workouts on the training calendar (what syncs to the watch) |
+| `create_workout_template(title, steps, sport="outdoor_run", description="")` | **Writes.** Saves a structured workout (warm-up / repeats / cool-down; distance, time or lap-press steps; pace or HR alerts) to the template library |
+| `schedule_workout(day, title, steps, sport="outdoor_run", ..., if_exists="skip")` | **Writes.** Puts a structured workout on the training calendar for a day so it syncs to the watch. Same title already that day: `skip`, `replace` (to update a plan) or `add` |
+| `unschedule_workout(entry_id)` | **Writes.** Removes a calendar entry and its hidden template copy |
+| `delete_workout_template(template_id)` | **Writes.** Deletes a template from the library |
 
 Dates are ISO `YYYY-MM-DD` in local time. Workout `sport` names come from Zepp's
 numeric type codes; unmapped codes show as `unknown (type N)`. Add them to
@@ -53,7 +62,7 @@ ZEPP_EMAIL=you@example.com
 ZEPP_PASSWORD=your-zepp-password
 # optional
 ZEPP_COUNTRY=US                    # login country code; change if login fails
-ZEPP_TIMEZONE=Europe/Lisbon        # default: machine local time
+ZEPP_TIMEZONE=Europe/Lisbon        # IANA name; default: machine local time
 ZEPP_DEVICE_NAMES=10289411=My Band # name devices missing from the built-in table
 ZEPP_TOKEN_CACHE=~/.cache/amazfit-mcp/auth.json   # or "off"
 ```

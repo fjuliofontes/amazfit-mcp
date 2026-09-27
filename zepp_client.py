@@ -239,17 +239,37 @@ class ZeppClient:
                 return float(retry_after)
         return self.retry_base_delay * (2**attempt)
 
-    def _get(self, url_or_path: str, params: dict | list, _retry_auth: bool = True) -> dict:
+    def _get(self, url_or_path: str, params: dict | list) -> dict:
+        return self._request("GET", url_or_path, params=params)
+
+    def _put(self, path: str, body: dict) -> dict:
+        return self._request("PUT", path, body=body)
+
+    def _delete(self, path: str) -> dict:
+        return self._request("DELETE", path)
+
+    def _request(
+        self,
+        method: str,
+        url_or_path: str,
+        params: dict | list | None = None,
+        body: dict | None = None,
+        _retry_auth: bool = True,
+    ) -> dict:
         self._ensure()
         token = self._app_token
         assert token is not None
         url = url_or_path if url_or_path.startswith("https://") else f"https://{DATA_HOST}{url_or_path}"
+        send = getattr(self._http, method.lower())
+        kwargs: dict = {"json": body} if body is not None else {"params": params} if params is not None else {}
 
         for attempt in range(self.max_retries + 1):
             try:
-                r = self._http.get(url, headers=_data_headers(token), params=params, timeout=30)
+                r = send(url, headers=_data_headers(token), timeout=30, **kwargs)
             except requests.exceptions.RequestException as e:
-                if attempt >= self.max_retries:
+                # A write that failed mid-flight may still have been applied;
+                # replaying it could create a duplicate, so only reads retry.
+                if method != "GET" or attempt >= self.max_retries:
                     raise ZeppError(f"{urlparse(url).path} failed after {attempt + 1} attempts: {e}") from e
                 time.sleep(self._backoff_delay(attempt))
                 continue
@@ -263,11 +283,16 @@ class ZeppClient:
             if r.status_code in (401, 403) and _retry_auth:
                 # Cached/expired token: log in fresh, then replay once.
                 self.login()
-                return self._get(url_or_path, params, _retry_auth=False)
+                return self._request(method, url_or_path, params=params, body=body, _retry_auth=False)
 
+            if method != "GET" and r.status_code >= 400:
+                raise ZeppError(f"{method} {urlparse(url).path} -> HTTP {r.status_code}: {r.text[:200]}")
             try:
                 return r.json()
             except ValueError:
+                # Some writes (template DELETE) answer 200 with an empty body.
+                if method != "GET" and r.status_code < 300 and not r.text.strip():
+                    return {}
                 raise ZeppError(f"{urlparse(url).path} -> HTTP {r.status_code} non-JSON response") from None
 
         raise ZeppError(f"{urlparse(url).path} failed after {self.max_retries + 1} attempts")
@@ -401,6 +426,53 @@ class ZeppClient:
             {"trackid": trackid, "source": source, "userid": self.user_id},
         )
         return j.get("data", j)
+
+    # ---- structured workouts (see training.py for the body shapes) ------
+
+    def training_templates(self, workout_ids: list[int | str] | None = None, size: int = 100) -> list[dict]:
+        """Raw structured-workout templates. The library (`sourceType` 0) by
+        default; the per-entry copies calendar entries run (`sourceType` 1)
+        are only returned when asked for by id via `workout_ids`."""
+        params: dict = {"size": size}
+        if workout_ids:
+            params["workoutIds"] = ",".join(str(i) for i in workout_ids)
+        j = self._get("/users/training/templates", params)
+        return j.get("items", []) if isinstance(j, dict) else []
+
+    def save_training_template(self, template: dict) -> dict:
+        """Create a template; returns it as stored, with its new `id`."""
+        j = self._put("/users/training/templates", template)
+        if not isinstance(j, dict) or not j.get("id"):
+            raise ZeppError(f"saving template failed: {str(j)[:200]}")
+        return j
+
+    def delete_training_template(self, template_id: int | str) -> None:
+        self._delete(f"/users/training/templates/{template_id}")
+
+    def training_calendar(self, from_ms: int, to_ms: int, limit: int = 100) -> list[dict]:
+        """Raw training-calendar entries between two epoch-ms timestamps."""
+        j = self._get(
+            f"/users/{self.user_id}/training/calendar",
+            {"startTime": from_ms, "endTime": to_ms, "limit": limit},
+        )
+        if isinstance(j, dict) and j.get("code") not in (None, 1):
+            raise ZeppError(f"training calendar -> code {j.get('code')}: {j.get('message')}")
+        data = j.get("data", {}) if isinstance(j, dict) else {}
+        return data.get("items", []) if isinstance(data, dict) else []
+
+    def add_calendar_entry(self, entry: dict) -> dict:
+        """Create a training-calendar entry; returns it as stored."""
+        j = self._put(f"/users/{self.user_id}/training/calendar", entry)
+        if not isinstance(j, dict) or j.get("code") != 1 or not isinstance(j.get("data"), dict):
+            raise ZeppError(f"adding calendar entry failed: {str(j)[:200]}")
+        return j["data"]
+
+    def delete_calendar_entry(self, entry_id: str) -> None:
+        """Remove a calendar entry. Its template copy is left behind; the app
+        deletes that separately (`delete_training_template`)."""
+        j = self._delete(f"/users/{self.user_id}/training/calendar/{entry_id}")
+        if not isinstance(j, dict) or j.get("code") != 1:
+            raise ZeppError(f"deleting calendar entry failed: {str(j)[:200]}")
 
 
 def _maybe_b64_json(raw):
