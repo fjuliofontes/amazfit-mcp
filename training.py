@@ -11,8 +11,11 @@ repeat blocks (CIRCLE children are NODEs). Each NODE's `trainingInterval`:
   "1" time in seconds, "8" until the lap button is pressed (value "8")
 - alertRule + alertRuleDetail: "0" / "0-0" none; "1" / "<fast>-<slow>" pace
   range in seconds per km (e.g. "220-270" = 3:40-4:30/km); "2" / "<lo>-<hi>"
-  heart-rate range in bpm; "3" / "<n>" HR zone; "9" / "<max>-<lo>-<hi>" HR
-  range as % of max HR
+  step cadence in steps/min (the watch shows it as cadence - "2" only exists
+  for running/walking sports); "3" / "<lo>-<hi>" heart-rate range in bpm
+  ("3" is the only target strength/core/indoor-cycling support, per
+  `supportAlertRules` in /users/training/types); "9" / "<max>-<lo>-<hi>" HR
+  range as % of max HR (unverified)
 
 Scheduling mirrors the app: save a copy of the template with `sourceType` 1,
 then add a calendar entry whose iCalendar body carries
@@ -34,7 +37,7 @@ STEP_TYPES = {"warmup": "0", "run": "1", "rest": "2", "recovery": "3", "cooldown
 _STEP_NAMES = {v: k for k, v in STEP_TYPES.items()}
 
 _UNIT_DISTANCE, _UNIT_TIME, _UNIT_LAP = "0", "1", "8"
-_ALERT_NONE, _ALERT_PACE, _ALERT_HR = "0", "1", "2"
+_ALERT_NONE, _ALERT_PACE, _ALERT_CADENCE, _ALERT_HR = "0", "1", "2", "3"
 
 _PACE_RE = re.compile(r"^\s*(\d+):([0-5]\d)\s*$")
 _HR_RE = re.compile(r"^\s*(\d{2,3})\s*-\s*(\d{2,3})\s*$")
@@ -239,8 +242,8 @@ def _describe_node(ti: dict) -> str:
         out += f" @ {_fmt_pace(int(parts[0]))}-{_fmt_pace(int(parts[1]))}/km"
     elif rule == _ALERT_HR and len(parts) == 2 and numeric:
         out += f" @ HR {parts[0]}-{parts[1]} bpm"
-    elif rule == "3" and len(parts) == 1 and numeric:
-        out += f" @ HR zone {parts[0]}"
+    elif rule == _ALERT_CADENCE and len(parts) == 2 and numeric:
+        out += f" @ cadence {parts[0]}-{parts[1]} spm"
     elif rule == "9" and len(parts) == 3 and numeric:
         out += f" @ HR {parts[1]}-{parts[2]}% of max {parts[0]}"
     elif rule not in ("0", "None"):

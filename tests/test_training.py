@@ -132,8 +132,14 @@ def test_describe_round_trips():
 def test_hr_alert_encoding_and_description():
     body = T.build_template("easy", [{"type": "run", "distance_m": 6000, "hr": "145-120"}])
     ti = _nodes(body)[0]["trainingInterval"]
-    assert (ti["alertRule"], ti["alertRuleDetail"]) == ("2", "120-145")
+    assert (ti["alertRule"], ti["alertRuleDetail"]) == ("3", "120-145")
     assert T.describe_steps(body["trainingInterval"]) == ["run 6 km @ HR 120-145 bpm"]
+
+
+def test_cadence_alert_is_described_as_cadence_not_hr():
+    # Rule "2" is step cadence on the watch; templates built before the fix used it for HR.
+    ti = {"intervalType": "1", "intervalUnit": "0", "intervalUnitValue": "6000", "alertRule": "2", "alertRuleDetail": "120-145"}
+    assert T._describe_node(ti) == "run 6 km @ cadence 120-145 spm"
 
 
 def test_calendar_summary_reads_timed_entries():
